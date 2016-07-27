@@ -91,6 +91,19 @@ static int readch(char *tty)
 	return ch1 & 0xFF;
 }
 
+static void do_speed(speed_t speed)
+{
+	struct termios term;
+
+	if (tcgetattr(0, &term))
+		return;
+
+	cfsetispeed(&term, speed);
+	cfsetospeed(&term, speed);
+	tcsetattr(0, TCSAFLUSH, &term);
+}
+
+
 /*
  * Parse and display a line from /etc/issue
  */
@@ -170,30 +183,16 @@ static void do_issue(char *tty)
 /*
  * Handle the process of a GETTY.
  */
-static void do_getty(char *tty, char *name, size_t len, speed_t speed)
+static void do_getty(char *tty, char *name, size_t len)
 {
 	int ch;
 	char *np;
-	struct termios term;
 
 	/*
 	 * Clean up tty name.
 	 */
-	if (!strncmp(tty, "/dev/", 5))
+	if (!strncmp(tty, _PATH_DEV, strlen(_PATH_DEV)))
 		tty += 5;
-
-	/*
-	 * Set speed, if any
-	 */
-	if (!tcgetattr(0, &term)) {
-		if (cfsetispeed(&term, speed))
-			std_err("Failed setting TTY inbound speed\n");
-		if (cfsetospeed(&term, speed))
-			std_err("Failed setting TTY outbound speed\n");
-		tcsetattr(0, TCSAFLUSH, &term);
-	} else {
-		std_err("Failed reading TTY settings\n");
-	}
 
 	/*
 	 * Display prompt.
@@ -337,7 +336,8 @@ int main(int argc, char **argv)
 	/*
 	 * Prepare line, read username and call login
 	 */
-	do_getty(tty, name, sizeof(name), speed);
+	do_speed(speed);
+	do_getty(tty, name, sizeof(name));
 
 	return do_login(name);
 }
