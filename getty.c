@@ -132,13 +132,7 @@ void do_getty(char *tty, char *name, size_t len, char **args)
 				case 'r':  std_out(utsname.release); break;
 				case 'v':  std_out(utsname.version); break;
 				case 'm':  std_out(utsname.machine); break;
-				case 'p':  std_out(utsname.arch); break;
 				case 't':  std_out(tty); break;
-#if __minix_vmd
-				case 'k':  std_out(utsname.kernel); break;
-				case 'h':  std_out(utsname.hostname); break;
-				case 'b':  std_out(utsname.bus); break;
-#endif
 				case 0:	   goto leave;
 				default:   s0 = s-1;
 				}
