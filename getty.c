@@ -36,17 +36,18 @@
  *		2016-07-27	J. Nilsson
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <paths.h>
 #include <signal.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <paths.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/utsname.h>
-#include <stdio.h>
+#include <termios.h>
+#include <unistd.h>
 
 #ifndef _PATH_LOGIN
 #define _PATH_LOGIN  "/bin/login"
@@ -55,15 +56,20 @@
 /* Crude indication of a tty being physically secure: */
 #define securetty(dev)		((unsigned) ((dev) - 0x0400) < (unsigned) 8)
 
-void std_out(const char *s)
+static void std_out(const char *s)
 {
 	write(1, s, strlen(s));
+}
+
+static void std_err(const char *s)
+{
+	write(2, s, strlen(s));
 }
 
 /*
  * Read one character from stdin.
  */
-int readch(char *tty)
+static int readch(char *tty)
 {
 	int st;
 	char ch1;
@@ -78,9 +84,9 @@ int readch(char *tty)
 	}
 
 	if (st < 0) {
-		std_out("getty: ");
-		std_out(tty);
-		std_out(": read error\n");
+		std_err("getty: ");
+		std_err(tty);
+		std_err(": read error\n");
 		exit(1);
 	}
 
@@ -141,7 +147,7 @@ leave:
 static void do_issue(char *tty)
 {
 	FILE *fp;
-	char buf[BUFSIZ] = "Welcome to \\s \\v\n\n";
+	char buf[BUFSIZ] = "Welcome to \\s \\v \\n \\l\n\n";
 	struct utsname uts;
 
 	/*
@@ -166,10 +172,11 @@ static void do_issue(char *tty)
 /*
  * Handle the process of a GETTY.
  */
-void do_getty(char *tty, char *name, size_t len, char **args)
+static void do_getty(char *tty, char *name, size_t len, speed_t speed)
 {
 	int ch;
 	char *np;
+	struct termios term;
 
 	/*
 	 * Clean up tty name.
@@ -177,11 +184,17 @@ void do_getty(char *tty, char *name, size_t len, char **args)
 	if (!strncmp(tty, "/dev/", 5))
 		tty += 5;
 
-	if (args[0] != NULL) {
-		char cmd[5 + 6 + 1];	/* "stty " + "115200" + '\0' */
-
-		snprintf(cmd, sizeof(cmd), "stty %d\n", atoi(args[0]));
-		system(cmd);
+	/*
+	 * Set speed, if any
+	 */
+	if (!tcgetattr(0, &term)) {
+		if (cfsetispeed(&term, speed))
+			std_err("Failed setting TTY inbound speed\n");
+		if (cfsetospeed(&term, speed))
+			std_err("Failed setting TTY outbound speed\n");
+		tcsetattr(0, TCSAFLUSH, &term);
+	} else {
+		std_err("Failed reading TTY settings\n");
 	}
 
 	/*
@@ -205,13 +218,15 @@ void do_getty(char *tty, char *name, size_t len, char **args)
 		if (*name == '\0')
 			ch = ' ';	/* blank line typed! */
 	}
+
+	name[len - 1] = 0;
 }
 
 /* Execute the login(1) command with the current
  * username as its argument. It will reply to the
  * calling user by typing "Password: "...
  */
-void do_login(char *name)
+static int do_login(char *name)
 {
 	struct stat st;
 
@@ -222,17 +237,89 @@ void do_login(char *name)
 	 * but only if the terminal is more or less secure, because it
 	 * will be a root shell.
 	 */
-	std_out("getty: can't exec ");
-	std_out(_PATH_LOGIN);
-	std_out("\n");
+	std_err("getty: can't exec ");
+	std_err(_PATH_LOGIN);
+	std_err("\n");
 	if (fstat(0, &st) == 0 && S_ISCHR(st.st_mode) && securetty(st.st_rdev))
 		execl(_PATH_BSHELL, _PATH_BSHELL, NULL);
+
+	return 1;	/* We shouldn't get here ... */
+}
+
+static int usage(int code)
+{
+	std_out("Usage: getty [SPEED]\n");
+	return code;
+}
+
+static speed_t do_parse_speed(char *arg)
+{
+	char *ptr;
+	size_t i;
+	unsigned long val;
+	struct { unsigned long val; speed_t speed; } v2s[] = {
+		{       0, B0        },
+		{      50, B50       },
+		{      75, B75       },
+		{     110, B110      },
+		{     134, B134      },
+		{     150, B150      },
+		{     200, B200      },
+		{     300, B300      },
+		{     600, B600      },
+		{    1200, B1200     },
+		{    1800, B1800     },
+		{    2400, B2400     },
+		{    4800, B4800     },
+		{    9600, B9600     },
+		{   19200, B19200    },
+		{   38400, B38400    },
+		{   57600, B57600    },
+		{  115200, B115200   },
+		{  230400, B230400   },
+		{  460800, B460800   },
+		{  500000, B500000   },
+		{  576000, B576000   },
+		{  921600, B921600   },
+		{ 1000000, B1000000  },
+		{ 1152000, B1152000  },
+		{ 1500000, B1500000  },
+		{ 2000000, B2000000  },
+		{ 2500000, B2500000  },
+		{ 3000000, B3000000  },
+		{ 3500000, B3500000  },
+		{ 4000000, B4000000  },
+	};
+
+	errno = 0;
+	val = strtoul(arg, &ptr, 10);
+	if (errno || ptr == arg)
+		return B0;
+
+	for (i = 0; i < sizeof(v2s) / sizeof(v2s[0]); i++) {
+		if (v2s[i].val == val)
+			return v2s[i].speed;
+	}
+
+	return B0;
 }
 
 int main(int argc, char **argv)
 {
 	char name[30], *tty;
+	speed_t speed = TTYDEF_SPEED; //B38400;
 	struct sigaction sa;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "-h"))
+			return usage(0);
+
+		speed = do_parse_speed(argv[1]);
+		if (speed == B0) {
+			std_err("Invalid TTY speed\n");
+			return 1;
+		}
+	}
 
 	/*
 	 * Don't let QUIT dump core.
@@ -244,14 +331,15 @@ int main(int argc, char **argv)
 
 	tty = ttyname(0);
 	if (tty == NULL) {
-		std_out("getty: tty name unknown\n");
+		std_err("getty: unknown TTY\n");
 		pause();
 		return (1);
 	}
 
-	do_getty(tty, name, sizeof(name), argv + 1);
-	name[29] = '\0';
-	do_login(name);
+	/*
+	 * Prepare line, read username and call login
+	 */
+	do_getty(tty, name, sizeof(name), speed);
 
-	return 1;
+	return do_login(name);
 }
