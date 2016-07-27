@@ -31,6 +31,9 @@
  *		Removed unused custom banner and returned speed option
  *		functionality (by simply calling stty).
  *		2012-09-24	T. Veerman
+ *
+ *		Refactored banner code to read std /etc/issue instead
+ *		2016-07-27	J. Nilsson
  */
 
 #include <sys/types.h>
@@ -41,11 +44,13 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <paths.h>
 #include <sys/utsname.h>
 #include <stdio.h>
 
-char LOGIN[] = "/usr/bin/login";
-char SHELL[] = "/bin/sh";
+#ifndef _PATH_LOGIN
+#define _PATH_LOGIN  "/bin/login"
+#endif
 
 /* Crude indication of a tty being physically secure: */
 #define securetty(dev)		((unsigned) ((dev) - 0x0400) < (unsigned) 8)
@@ -83,20 +88,93 @@ int readch(char *tty)
 }
 
 /*
+ * Parse and display a line from /etc/issue
+ */
+static void do_parse(char *line, struct utsname *uts, char *tty)
+{
+	char *s, *s0;
+
+	s0 = line;
+	for (s = line; *s != 0; s++) {
+		if (*s == '\\') {
+			write(1, s0, s - s0);
+			s0 = s + 2;
+			switch (*++s) {
+			case 'l':
+				std_out(tty);
+				break;
+			case 'm':
+				std_out(uts->machine);
+				break;
+			case 'n':
+				std_out(uts->nodename);
+				break;
+#ifdef _GNU_SOURCE
+			case 'o':
+				std_out(uts->domainname);
+				break;
+#endif
+			case 'r':
+				std_out(uts->release);
+				break;
+			case 's':
+				std_out(uts->sysname);
+				break;
+			case 'v':
+				std_out(uts->version);
+				break;
+			case 0:
+				goto leave;
+			default:
+				s0 = s - 1;
+			}
+		}
+	}
+
+leave:
+	write(1, s0, s - s0);
+}
+
+/*
+ * Parse and display /etc/issue
+ */
+static void do_issue(char *tty)
+{
+	FILE *fp;
+	char buf[BUFSIZ] = "Welcome to \\s \\v\n\n";
+	struct utsname uts;
+
+	/*
+	 * Get data about this machine.
+	 */
+	uname(&uts);
+
+	std_out("\n");
+	fp = fopen("/etc/issue", "r");
+	if (fp) {
+		while (fgets(buf, sizeof(buf), fp))
+			do_parse(buf, &uts, tty);
+
+		fclose(fp);
+	} else {
+		do_parse(buf, &uts, tty);
+	}
+
+	do_parse("\\n login: ", &uts, tty);
+}
+
+/*
  * Handle the process of a GETTY.
  */
 void do_getty(char *tty, char *name, size_t len, char **args)
 {
 	int ch;
-	char *np, *s, *s0;
-	char **banner, *t;
-	struct utsname utsname;
-	static char *def_banner[] = { "%s  Release %r Version %v  (%t)\n\n%n login: ", 0 };
+	char *np;
 
 	/*
 	 * Clean up tty name.
 	 */
-	if (!strcmp(tty, "/dev/"))
+	if (!strncmp(tty, "/dev/", 5))
 		tty += 5;
 
 	if (args[0] != NULL) {
@@ -109,77 +187,20 @@ void do_getty(char *tty, char *name, size_t len, char **args)
 	/*
 	 * Display prompt.
 	 */
+	do_issue(tty);
+
+	/*
+	 * Read username.
+	 */
 	ch = ' ';
 	*name = '\0';
 	while (ch != '\n') {
-		/*
-		 * Get data about this machine.
-		 */
-		uname(&utsname);
-
-		/*
-		 * Print the banner.
-		 */
-		for (banner = def_banner; *banner != NULL; banner++) {
-			std_out(banner == args ? "\n" : " ");
-			s0 = *banner;
-			for (s = *banner; *s != 0; s++) {
-				if (*s == '\\') {
-					write(1, s0, s - s0);
-					s0 = s + 2;
-					switch (*++s) {
-					case 'n':
-						std_out("\n");
-						break;
-					case 's':
-						std_out(" ");
-						break;
-					case 't':
-						std_out("\t");
-						break;
-					case 0:
-						goto leave;
-					default:
-						s0 = s;
-					}
-				} else if (*s == '%') {
-					write(1, s0, s - s0);
-					s0 = s + 2;
-					switch (*++s) {
-					case 's':
-						std_out(utsname.sysname);
-						break;
-					case 'n':
-						std_out(utsname.nodename);
-						break;
-					case 'r':
-						std_out(utsname.release);
-						break;
-					case 'v':
-						std_out(utsname.version);
-						break;
-					case 'm':
-						std_out(utsname.machine);
-						break;
-					case 't':
-						std_out(tty);
-						break;
-					case 0:
-						goto leave;
-					default:
-						s0 = s - 1;
-					}
-				}
-			}
- leave:
-			write(1, s0, s - s0);
-		}
-
 		np = name;
 		while ((ch = readch(tty)) != '\n') {
 			if (np < name + len)
 				*np++ = ch;
 		}
+
 		*np = '\0';
 		if (*name == '\0')
 			ch = ' ';	/* blank line typed! */
@@ -194,7 +215,7 @@ void do_login(char *name)
 {
 	struct stat st;
 
-	execl(LOGIN, LOGIN, name, (char *)NULL);
+	execl(_PATH_LOGIN, _PATH_LOGIN, name, NULL);
 
 	/*
 	 * Failed to exec login.  Impossible, but true.  Try a shell,
@@ -202,10 +223,10 @@ void do_login(char *name)
 	 * will be a root shell.
 	 */
 	std_out("getty: can't exec ");
-	std_out(LOGIN);
+	std_out(_PATH_LOGIN);
 	std_out("\n");
 	if (fstat(0, &st) == 0 && S_ISCHR(st.st_mode) && securetty(st.st_rdev))
-		execl(SHELL, SHELL, (char *)NULL);
+		execl(_PATH_BSHELL, _PATH_BSHELL, NULL);
 }
 
 int main(int argc, char **argv)
