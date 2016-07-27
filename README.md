@@ -1,0 +1,2 @@
+# getty
+Minix getty
