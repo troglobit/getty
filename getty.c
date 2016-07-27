@@ -47,8 +47,6 @@
 char LOGIN[] =		"/usr/bin/login";
 char SHELL[] =		"/bin/sh";
 
-char *tty_name;			/* name of the line */
-
 /* Crude indication of a tty being physically secure: */
 #define securetty(dev)		((unsigned) ((dev) - 0x0400) < (unsigned) 8)
 
@@ -59,7 +57,7 @@ void std_out(const char *s)
 
 /* Read one character from stdin.
  */
-int readch(void)
+int readch(char *tty)
 {
   int st;
   char ch1;
@@ -72,7 +70,7 @@ int readch(void)
   }
   if (st < 0) {
 	std_out("getty: ");
-	std_out(tty_name);
+	std_out(tty);
 	std_out(": read error\n");
 	exit(1);
   }
@@ -82,7 +80,7 @@ int readch(void)
 
 /* Handle the process of a GETTY.
  */
-void do_getty(char *name, size_t len, char **args, const char *ttyname)
+void do_getty(char *tty, char *name, size_t len, char **args)
 {
   register char *np, *s, *s0;
   int ch;
@@ -91,7 +89,8 @@ void do_getty(char *name, size_t len, char **args, const char *ttyname)
   static char *def_banner[] = { "%s  Release %r Version %v  (%t)\n\n%n login: ", 0 };
 
   /* Clean up tty name. */
-  if((t = strrchr(ttyname, '/'))) ttyname = t + 1;
+  if (!strcmp(tty, "/dev/"))
+	  tty += 5;
 
   if (args[0] != NULL) {
 	char cmd[5+6+1]; /* "stty " + "115200" + '\0' */
@@ -134,7 +133,7 @@ void do_getty(char *name, size_t len, char **args, const char *ttyname)
 				case 'v':  std_out(utsname.version); break;
 				case 'm':  std_out(utsname.machine); break;
 				case 'p':  std_out(utsname.arch); break;
-				case 't':  std_out(ttyname); break;
+				case 't':  std_out(tty); break;
 #if __minix_vmd
 				case 'k':  std_out(utsname.kernel); break;
 				case 'h':  std_out(utsname.hostname); break;
@@ -150,7 +149,7 @@ void do_getty(char *name, size_t len, char **args, const char *ttyname)
 	}
 
 	np = name;
-	while ((ch = readch()) != '\n') {
+	while ((ch = readch(tty)) != '\n') {
 		if (np < name + len) *np++ = ch;
 	}
 	*np = '\0';
@@ -182,7 +181,7 @@ void do_login(char *name)
 
 int main(int argc, char **argv)
 {
-  char name[30];
+  char name[30], *tty;
   struct sigaction sa;
 
   /* Don't let QUIT dump core. */
@@ -191,17 +190,14 @@ int main(int argc, char **argv)
   sa.sa_handler = exit;
   sigaction(SIGQUIT, &sa, NULL);
 
-  tty_name = ttyname(0);
-  if (tty_name == NULL) {
 	std_out("getty: tty name unknown\n");
 	pause();
 	return(1);
+  tty = ttyname(0);
+  if (tty == NULL) {
   }
 
-  chown(tty_name, 0, 0);	/* set owner of TTY to root */
-  chmod(tty_name, 0600);	/* mode to max secure */
-
-  do_getty(name, sizeof(name), argv+1, tty_name);	/* handle getty() */
+  do_getty(tty, name, sizeof(name), argv+1);	/* handle getty() */
   name[29] = '\0';		/* make sure the name fits! */
 
   do_login(name);		/* and call login(1) if OK */
