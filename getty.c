@@ -1,39 +1,37 @@
-/* getty - get tty speed			Author: Fred van Kempen */
-
-/*
- * GETTY  -     Initialize and serve a login-terminal for INIT.
- *		Also, select the correct speed. The STTY() code
- *		was taken from stty(1).c; which was written by
- *		Andrew S. Tanenbaum.
+/* get tty speed -- Initialize and serve a login-terminal for INIT
  *
- * Usage:	getty [speed]
+ * Copyright (c) 1987,1997  Prentice Hall
+ * All rights reserved.
  *
- * Version:	3.4	02/17/90
- *
- * Author:	F. van Kempen, MicroWalt Corporation
- *
- * Modifications:
- *		All the good stuff removed to get a minimal getty, because
- *		many modems don't like all that fancy speed detection stuff.
- *		03/03/91	Kees J. Bot (kjb@cs.vu.nl)
- *
- *		Uname(), termios.  More nonsense removed.  (The result has
- *		only 10% of the original functionality, but a 10x chance of
- *		working.)
- *		12/12/92	Kees J. Bot
- *
- *		Customizable login banner.
- *		11/13/95	Kees J. Bot
- *
- *		Suspend/resume signals removed.
- *		2001-04-04	Kees J. Bot
- *
- *		Removed unused custom banner and returned speed option
- *		functionality (by simply calling stty).
- *		2012-09-24	T. Veerman
- *
- *		Refactored banner code to read std /etc/issue instead
- *		2016-07-27	J. Nilsson
+ * Redistribution and use of the MINIX operating system in source and
+ * binary forms, with or without modification, are permitted provided
+ * that the following conditions are met:
+ * 
+ *    * Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ * 
+ *    * Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials provided
+ *      with the distribution.
+ * 
+ *    * Neither the name of Prentice Hall nor the names of the software
+ *      authors or contributors may be used to endorse or promote
+ *      products derived from this software without specific prior
+ *      written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS, AUTHORS, AND
+ * CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
+ * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL PRENTICE HALL OR ANY AUTHORS OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include <errno.h>
@@ -248,7 +246,7 @@ static int do_login(char *name)
 
 static int usage(int code)
 {
-	std_out("Usage: getty [SPEED]\n");
+	std_out("Usage: getty [-h] [SPEED]\n");
 	return code;
 }
 
@@ -307,7 +305,7 @@ static speed_t do_parse_speed(char *arg)
 int main(int argc, char **argv)
 {
 	char name[30], *tty;
-	speed_t speed = TTYDEF_SPEED; //B38400;
+	speed_t speed = B38400;
 	struct sigaction sa;
 
 	if (argc > 1) {
