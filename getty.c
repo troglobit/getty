@@ -6,7 +6,7 @@
  *		was taken from stty(1).c; which was written by
  *		Andrew S. Tanenbaum.
  *
- * Usage:	getty [-c filename] [-h] [-k] [-t] line [speed]
+ * Usage:	getty [speed]
  *
  * Version:	3.4	02/17/90
  *
@@ -27,6 +27,10 @@
  *
  *		Suspend/resume signals removed.
  *		2001-04-04	Kees J. Bot
+ *
+ *		Removed unused custom banner and returned speed option
+ *		functionality (by simply calling stty).
+ *		2012-09-24	T. Veerman
  */
 
 #include <sys/types.h>
@@ -38,6 +42,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/utsname.h>
+#include <stdio.h>
 
 char LOGIN[] =		"/usr/bin/login";
 char SHELL[] =		"/bin/sh";
@@ -47,7 +52,7 @@ char *tty_name;			/* name of the line */
 /* Crude indication of a tty being physically secure: */
 #define securetty(dev)		((unsigned) ((dev) - 0x0400) < (unsigned) 8)
 
-void std_out(char *s)
+void std_out(const char *s)
 {
   write(1, s, strlen(s));
 }
@@ -77,16 +82,24 @@ int readch(void)
 
 /* Handle the process of a GETTY.
  */
-void do_getty(char *name, size_t len, char **args)
+void do_getty(char *name, size_t len, char **args, const char *ttyname)
 {
   register char *np, *s, *s0;
   int ch;
   struct utsname utsname;
-  char **banner;
-  static char *def_banner[] = { "%s  Release %r Version %v\n\n%n login: ", 0 };
+  char **banner, *t;
+  static char *def_banner[] = { "%s  Release %r Version %v  (%t)\n\n%n login: ", 0 };
 
-  /* Default banner? */
-  if (args[0] == NULL) args = def_banner;
+  /* Clean up tty name. */
+  if((t = strrchr(ttyname, '/'))) ttyname = t + 1;
+
+  if (args[0] != NULL) {
+	char cmd[5+6+1]; /* "stty " + "115200" + '\0' */
+	int speed;
+	speed = atoi(args[0]);
+	snprintf(cmd, sizeof(cmd), "stty %d\n", speed);
+	system(cmd);
+  }
 
   /* Display prompt. */
   ch = ' ';
@@ -96,7 +109,7 @@ void do_getty(char *name, size_t len, char **args)
 	uname(&utsname);
 
 	/* Print the banner. */
-	for (banner = args; *banner != NULL; banner++) {
+	for (banner = def_banner; *banner != NULL; banner++) {
 		std_out(banner == args ? "\n" : " ");
 		s0 = *banner;
 		for (s = *banner; *s != 0; s++) {
@@ -121,6 +134,7 @@ void do_getty(char *name, size_t len, char **args)
 				case 'v':  std_out(utsname.version); break;
 				case 'm':  std_out(utsname.machine); break;
 				case 'p':  std_out(utsname.arch); break;
+				case 't':  std_out(ttyname); break;
 #if __minix_vmd
 				case 'k':  std_out(utsname.kernel); break;
 				case 'h':  std_out(utsname.hostname); break;
@@ -168,7 +182,6 @@ void do_login(char *name)
 
 int main(int argc, char **argv)
 {
-  register char *s;
   char name[30];
   struct sigaction sa;
 
@@ -188,7 +201,7 @@ int main(int argc, char **argv)
   chown(tty_name, 0, 0);	/* set owner of TTY to root */
   chmod(tty_name, 0600);	/* mode to max secure */
 
-  do_getty(name, sizeof(name), argv+1);	/* handle getty() */
+  do_getty(name, sizeof(name), argv+1, tty_name);	/* handle getty() */
   name[29] = '\0';		/* make sure the name fits! */
 
   do_login(name);		/* and call login(1) if OK */
