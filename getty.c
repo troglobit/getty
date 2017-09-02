@@ -52,8 +52,7 @@
 #endif
 
 #define CTL(x)   ((x) ^ 0100)
-/* Crude indication of a tty being physically secure: */
-#define securetty(dev)		((unsigned) ((dev) - 0x0400) < (unsigned) 8)
+
 
 static void std_out(const char *s)
 {
@@ -237,14 +236,15 @@ static int do_login(char *name)
 	execl(_PATH_LOGIN, _PATH_LOGIN, name, NULL);
 
 	/*
-	 * Failed to exec login.  Impossible, but true.  Try a shell,
-	 * but only if the terminal is more or less secure, because it
-	 * will be a root shell.
+	 * Failed to exec login, should be impossible.  Try a starting a
+	 * fallback shell instead.
+	 *
+	 * Note: Add /etc/securetty handling.
 	 */
 	std_err("getty: can't exec ");
 	std_err(_PATH_LOGIN);
 	std_err("\n");
-	if (fstat(0, &st) == 0 && S_ISCHR(st.st_mode) && securetty(st.st_rdev))
+	if (fstat(0, &st) == 0 && S_ISCHR(st.st_mode))
 		execl(_PATH_BSHELL, _PATH_BSHELL, NULL);
 
 	return 1;	/* We shouldn't get here ... */
