@@ -197,14 +197,11 @@ static void do_getty(char *tty, char *name, size_t len)
 	/*
 	 * Display prompt.
 	 */
-	do_issue(tty);
-
-	/*
-	 * Read username.
-	 */
 	ch = ' ';
 	*name = '\0';
 	while (ch != '\n') {
+		do_issue(tty);
+
 		np = name;
 		while ((ch = readch(tty)) != '\n') {
 			if (np < name + len)
@@ -219,7 +216,8 @@ static void do_getty(char *tty, char *name, size_t len)
 	name[len - 1] = 0;
 }
 
-/* Execute the login(1) command with the current
+/*
+ * Execute the login(1) command with the current
  * username as its argument. It will reply to the
  * calling user by typing "Password: "...
  */
