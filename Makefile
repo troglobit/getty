@@ -4,7 +4,7 @@ prefix   ?= /usr/local
 sbindir  ?= $(prefix/sbin
 
 CPPFLAGS  = -D_GNU_SOURCE
-CFLAGS    = -W -Wall -Wextra -O2 -g
+CFLAGS    = -W -Wall -Wextra -Wno-unused-result -O2 -g
 
 all: $(EXEC)
 
