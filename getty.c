@@ -51,6 +51,7 @@
 #define _PATH_LOGIN  "/bin/login"
 #endif
 
+#define CTL(x)   ((x) ^ 0100)
 /* Crude indication of a tty being physically secure: */
 #define securetty(dev)		((unsigned) ((dev) - 0x0400) < (unsigned) 8)
 
@@ -204,6 +205,14 @@ static void do_getty(char *tty, char *name, size_t len)
 
 		np = name;
 		while ((ch = readch(tty)) != '\n') {
+			if (ch == CTL('U')) {
+				while (np > name) {
+					(void)write(1, "\b \b", 3);
+					np--;
+				}
+				continue;
+			}
+
 			if (np < name + len)
 				*np++ = ch;
 		}
