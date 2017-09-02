@@ -34,6 +34,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <paths.h>
@@ -52,17 +53,8 @@
 #endif
 
 #define CTL(x)   ((x) ^ 0100)
+#define print(s) (void)write(STDOUT_FILENO, s, strlen(s))
 
-
-static void std_out(const char *s)
-{
-	write(1, s, strlen(s));
-}
-
-static void std_err(const char *s)
-{
-	write(2, s, strlen(s));
-}
 
 /*
  * Read one character from stdin.
@@ -77,16 +69,12 @@ static int readch(char *tty)
 	 */
 	st = read(0, &ch1, 1);
 	if (st == 0) {
-		std_out("\n");
+		print("\n");
 		exit(0);
 	}
 
-	if (st < 0) {
-		std_err("getty: ");
-		std_err(tty);
-		std_err(": read error\n");
-		exit(1);
-	}
+	if (st < 0)
+		errx(1, "getty: %s: read error", tty);
 
 	return ch1 & 0xFF;
 }
@@ -114,31 +102,31 @@ static void do_parse(char *line, struct utsname *uts, char *tty)
 	s0 = line;
 	for (s = line; *s != 0; s++) {
 		if (*s == '\\') {
-			write(1, s0, s - s0);
+			(void)write(1, s0, s - s0);
 			s0 = s + 2;
 			switch (*++s) {
 			case 'l':
-				std_out(tty);
+				print(tty);
 				break;
 			case 'm':
-				std_out(uts->machine);
+				print(uts->machine);
 				break;
 			case 'n':
-				std_out(uts->nodename);
+				print(uts->nodename);
 				break;
 #ifdef _GNU_SOURCE
 			case 'o':
-				std_out(uts->domainname);
+				print(uts->domainname);
 				break;
 #endif
 			case 'r':
-				std_out(uts->release);
+				print(uts->release);
 				break;
 			case 's':
-				std_out(uts->sysname);
+				print(uts->sysname);
 				break;
 			case 'v':
-				std_out(uts->version);
+				print(uts->version);
 				break;
 			case 0:
 				goto leave;
@@ -166,7 +154,7 @@ static void do_issue(char *tty)
 	 */
 	uname(&uts);
 
-	std_out("\n");
+	print("\n");
 	fp = fopen("/etc/issue", "r");
 	if (fp) {
 		while (fgets(buf, sizeof(buf), fp))
@@ -241,9 +229,7 @@ static int do_login(char *name)
 	 *
 	 * Note: Add /etc/securetty handling.
 	 */
-	std_err("getty: can't exec ");
-	std_err(_PATH_LOGIN);
-	std_err("\n");
+	warnx("Failed exec %s, attempting fallback to %s ...", _PATH_LOGIN, _PATH_BSHELL);
 	if (fstat(0, &st) == 0 && S_ISCHR(st.st_mode))
 		execl(_PATH_BSHELL, _PATH_BSHELL, NULL);
 
@@ -252,7 +238,7 @@ static int do_login(char *name)
 
 static int usage(int code)
 {
-	std_out("Usage: getty [-h] [SPEED]\n");
+	print("Usage: getty [-h] [SPEED]\n");
 	return code;
 }
 
@@ -320,7 +306,7 @@ int main(int argc, char **argv)
 
 		speed = do_parse_speed(argv[1]);
 		if (speed == B0) {
-			std_err("Invalid TTY speed\n");
+			warnx("Invalid TTY speed");
 			return 1;
 		}
 	}
@@ -334,10 +320,10 @@ int main(int argc, char **argv)
 	sigaction(SIGQUIT, &sa, NULL);
 
 	tty = ttyname(0);
-	if (tty == NULL) {
-		std_err("getty: unknown TTY\n");
+	if (!tty) {
+		warnx("getty: unknown TTY\n");
 		pause();
-		return (1);
+		return 1;
 	}
 
 	/*
