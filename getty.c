@@ -83,14 +83,15 @@ static void stty(speed_t speed)
 {
 	struct termios term;
 
+	tcdrain(STDIN_FILENO);
 	if (tcgetattr(STDIN_FILENO, &term))
 		return;
 
 	cfsetispeed(&term, speed);
 	cfsetospeed(&term, speed);
 	tcsetattr(STDIN_FILENO, TCSAFLUSH, &term);
+	tcflush(STDIN_FILENO, TCIOFLUSH);
 }
-
 
 /*
  * Parse and display a line from /etc/issue
