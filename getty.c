@@ -88,7 +88,7 @@ static void stty(speed_t speed)
 
 	cfsetispeed(&term, speed);
 	cfsetospeed(&term, speed);
-	tcsetattr(0, TCSAFLUSH, &term);
+	tcsetattr(STDIN_FILENO, TCSAFLUSH, &term);
 }
 
 
