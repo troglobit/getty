@@ -102,7 +102,7 @@ static void parse(char *line, struct utsname *uts, char *tty)
 	s0 = line;
 	for (s = line; *s != 0; s++) {
 		if (*s == '\\') {
-			(void)write(1, s0, s - s0);
+			write(STDOUT_FILENO, s0, s - s0);
 			s0 = s + 2;
 			switch (*++s) {
 			case 'l':
@@ -194,7 +194,7 @@ static void getty(char *tty, char *name, size_t len)
 		while ((ch = readch(tty)) != '\n') {
 			if (ch == CTL('U')) {
 				while (np > name) {
-					(void)write(1, "\b \b", 3);
+					write(STDOUT_FILENO, "\b \b", 3);
 					np--;
 				}
 				continue;
