@@ -1,6 +1,7 @@
 Minix getty
 ===========
 
+Very simple C implementation of a UNIX getty, originally from Minix.
 Initialize and serve a login-terminal for INIT.  Also, select the
 correct speed.
 
@@ -20,6 +21,9 @@ was written by Fred van Kempen.  It later found its way to Minix, which
 adopted version 3.4, 02/17/90, and started stripping it down to much of
 what is its current form.  The software was open sourced along with the
 rest of Minix under the 3-clause BSD license in April, 2000.
+
+This version has been extended and in critical parts rewritten to suit
+any UNIX system.
 
 
 ChangeLog
