@@ -95,7 +95,7 @@ static void stty(speed_t speed)
 /*
  * Parse and display a line from /etc/issue
  */
-static void do_parse(char *line, struct utsname *uts, char *tty)
+static void parse(char *line, struct utsname *uts, char *tty)
 {
 	char *s, *s0;
 
@@ -143,7 +143,7 @@ leave:
 /*
  * Parse and display /etc/issue
  */
-static void do_issue(char *tty)
+static void issue(char *tty)
 {
 	FILE *fp;
 	char buf[BUFSIZ] = "Welcome to \\s \\v \\n \\l\n\n";
@@ -158,14 +158,14 @@ static void do_issue(char *tty)
 	fp = fopen("/etc/issue", "r");
 	if (fp) {
 		while (fgets(buf, sizeof(buf), fp))
-			do_parse(buf, &uts, tty);
+			parse(buf, &uts, tty);
 
 		fclose(fp);
 	} else {
-		do_parse(buf, &uts, tty);
+		parse(buf, &uts, tty);
 	}
 
-	do_parse("\\n login: ", &uts, tty);
+	parse("\\n login: ", &uts, tty);
 }
 
 /*
@@ -188,7 +188,7 @@ static void getty(char *tty, char *name, size_t len)
 	ch = ' ';
 	*name = '\0';
 	while (ch != '\n') {
-		do_issue(tty);
+		issue(tty);
 
 		np = name;
 		while ((ch = readch(tty)) != '\n') {
@@ -217,7 +217,7 @@ static void getty(char *tty, char *name, size_t len)
  * username as its argument. It will reply to the
  * calling user by typing "Password: "...
  */
-static int do_login(char *name)
+static int login(char *name)
 {
 	struct stat st;
 
@@ -242,7 +242,7 @@ static int usage(int code)
 	return code;
 }
 
-static speed_t do_parse_speed(char *arg)
+static speed_t parse_speed(char *baud)
 {
 	char *ptr;
 	size_t i;
@@ -282,8 +282,8 @@ static speed_t do_parse_speed(char *arg)
 	};
 
 	errno = 0;
-	val = strtoul(arg, &ptr, 10);
-	if (errno || ptr == arg)
+	val = strtoul(baud, &ptr, 10);
+	if (errno || ptr == baud)
 		return B0;
 
 	for (i = 0; i < sizeof(v2s) / sizeof(v2s[0]); i++) {
@@ -304,7 +304,7 @@ int main(int argc, char **argv)
 		if (!strcmp(argv[1], "-h"))
 			return usage(0);
 
-		speed = do_parse_speed(argv[1]);
+		speed = parse_speed(argv[1]);
 		if (speed == B0) {
 			warnx("Invalid TTY speed");
 			return 1;
@@ -332,5 +332,5 @@ int main(int argc, char **argv)
 	stty(speed);
 	getty(tty, name, sizeof(name));
 
-	return do_login(name);
+	return login(name);
 }
