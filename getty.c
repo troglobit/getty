@@ -67,7 +67,7 @@ static int readch(char *tty)
 	/*
 	 * read character from TTY
 	 */
-	st = read(0, &ch1, 1);
+	st = read(STDIN_FILENO, &ch1, 1);
 	if (st == 0) {
 		print("\n");
 		exit(0);
@@ -83,7 +83,7 @@ static void stty(speed_t speed)
 {
 	struct termios term;
 
-	if (tcgetattr(0, &term))
+	if (tcgetattr(STDIN_FILENO, &term))
 		return;
 
 	cfsetispeed(&term, speed);
