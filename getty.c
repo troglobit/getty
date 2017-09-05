@@ -334,3 +334,10 @@ int main(int argc, char **argv)
 
 	return login(name);
 }
+
+/**
+ * Local Variables:
+ *  indent-tabs-mode: t
+ *  c-file-style: "linux"
+ * End:
+ */
