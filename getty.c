@@ -79,7 +79,7 @@ static int readch(char *tty)
 	return ch1 & 0xFF;
 }
 
-static void do_speed(speed_t speed)
+static void stty(speed_t speed)
 {
 	struct termios term;
 
@@ -171,7 +171,7 @@ static void do_issue(char *tty)
 /*
  * Handle the process of a GETTY.
  */
-static void do_getty(char *tty, char *name, size_t len)
+static void getty(char *tty, char *name, size_t len)
 {
 	int ch;
 	char *np;
@@ -329,8 +329,8 @@ int main(int argc, char **argv)
 	/*
 	 * Prepare line, read username and call login
 	 */
-	do_speed(speed);
-	do_getty(tty, name, sizeof(name));
+	stty(speed);
+	getty(tty, name, sizeof(name));
 
 	return do_login(name);
 }
