@@ -31,22 +31,26 @@ ChangeLog
 
 * All the good stuff removed to get a minimal getty, because many modems
   don't like all that fancy speed detection stuff.
-  03/03/91 Kees J. Bot (kjb@cs.vu.nl)
+  03/03/91 Kees J. Bot <mailto:kjb@cs.vu.nl>
 
 * Uname(), termios.  More nonsense removed.  (The result has only 10% of
   the original functionality, but a 10x chance of working.)
-  12/12/92 Kees J. Bot
+  12/12/92 Kees J. Bot <mailto:kjb@cs.vu.nl>
 
 * Customizable login banner.
-  11/13/95 Kees J. Bot
+  11/13/95 Kees J. Bot <mailto:kjb@cs.vu.nl>
 
 * Suspend/resume signals removed.
-  2001-04-04 Kees J. Bot
+  2001-04-04 Kees J. Bot <mailto:kjb@cs.vu.nl>
 
 * Removed unused custom banner and returned speed option functionality
   (by simply calling stty).
   2012-09-24 T. Veerman
 
-* Refactored banner code to read std /etc/issue instead.  Refactored
+* Refactored banner code to read std `/etc/issue` instead.  Refactored
   speed handling to use direct termios instead of stty.
-  2016-07-27 J. Nilsson
+  2016-07-27 J. Nilsson <mailto:troglobit@gmail.com>
+
+* Add support for Ctrl-U on `login:` prompt, fix build warnings, use
+  std `err.h` functions for error handling.  And more.
+  2017-09-05 J. Nilsson <mailto:troglobit@gmail.com>
