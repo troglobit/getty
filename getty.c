@@ -312,11 +312,14 @@ int main(int argc, char **argv)
 	}
 
 	/*
-	 * Don't let QUIT dump core.
+	 * Ignore a few signals, needed to prevent Ctrl-C at login:
+	 * prompt and to prevent QUIT from dumping core.
 	 */
 	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = 0;
-	sa.sa_handler = exit;
+	sa.sa_flags   = SA_RESTART;
+	sa.sa_handler = SIG_IGN;
+	sigaction(SIGHUP,  &sa, NULL);
+	sigaction(SIGINT,  &sa, NULL);
 	sigaction(SIGQUIT, &sa, NULL);
 
 	tty = ttyname(0);
